@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CellSaaS - shared platform: HTTP API, thin cell router (ADR-003) and routing table. Cells are
+  separate stacks (templates/cell.yaml); the router reaches them by function name cellsaas-cell-<id>.
+
+Parameters:
+  ApiKeyPepper:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: Secret used to HMAC tenant API keys; the routing table only stores the hashes.
+  RouteCacheSeconds:
+    Type: Number
+    Default: 10
+    MinValue: 0
+    MaxValue: 60
+  RouterMemorySize:
+    Type: Number
+    Default: 512
+    AllowedValues: [256, 512, 1024]
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+  ExecutionRoleArn:
+    Type: String
+    Default: ""
+    AllowedPattern: "^(arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+)?$"
+    Description: Empty creates a least-privilege role; in Learner Lab pass the LabRole ARN (ADR-008).
+
+Conditions:
+  CreateRole: !Equals [!Ref ExecutionRoleArn, ""]
+
+Resources:
+  RoutingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: cellsaas-routing
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+      SSESpecification:
+        SSEEnabled: true
+
+  RouterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/cellsaas-router
+      RetentionInDays: !Ref LogRetentionDays
+
+  RouterRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: read-routing
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:GetItem
+                Resource: !GetAtt RoutingTable.Arn
+        - PolicyName: invoke-cells
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:cellsaas-cell-*
+        - PolicyName: own-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt RouterLogGroup.Arn
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+
+  RouterFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: RouterLogGroup
+    Properties:
+      FunctionName: cellsaas-router
+      Description: CellSaaS router - authenticates the tenant and forwards to its cell
+      CodeUri: ../src
+      Handler: cellsaas.router.handler.lambda_handler
+      Runtime: python3.13
+      Architectures: [arm64]
+      MemorySize: !Ref RouterMemorySize
+      Timeout: 15
+      Role: !If [CreateRole, !GetAtt RouterRole.Arn, !Ref ExecutionRoleArn]
+      Environment:
+        Variables:
+          ROUTING_TABLE_NAME: !Ref RoutingTable
+          API_KEY_PEPPER: !Ref ApiKeyPepper
+          ROUTE_CACHE_SECONDS: !Ref RouteCacheSeconds
+          CELL_FUNCTION_PREFIX: cellsaas-cell-
+          METRICS_NAMESPACE: CellSaaS
+      Events:
+        CreateOrder:
+          Type: HttpApi
+          Properties: {ApiId: !Ref HttpApi, Method: POST, Path: /orders}
+        GetOrder:
+          Type: HttpApi
+          Properties: {ApiId: !Ref HttpApi, Method: GET, Path: "/orders/{orderId}"}
+        DailyReport:
+          Type: HttpApi
+          Properties: {ApiId: !Ref HttpApi, Method: GET, Path: /reports/daily}
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  RoutingTableName:
+    Value: !Ref RoutingTable

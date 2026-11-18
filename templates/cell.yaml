@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CellSaaS - one cell (ADR-001). A complete, independent copy of the ordering service: one Lambda
+  function and one DynamoDB table, with deliberately bounded capacity (ADR-004). The same template
+  deploys the pool (one big cell), the regular cells and the quarantine cell (ADR-002).
+
+Parameters:
+  CellId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+    Description: Cell identifier, e.g. c1, c2, c3, q (quarantine) or pool.
+  ReadCapacity:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    Description: Provisioned read capacity units of the cell's table.
+  WriteCapacity:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    Description: Provisioned write capacity units of the cell's table.
+  ReservedConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    Description: Reserved concurrency of the cell function; 0 leaves it unreserved (if the account does not allow reserving).
+  MemorySize:
+    Type: Number
+    Default: 256
+    AllowedValues: [128, 256, 512, 1024]
+  LogRetentionDays:
+    Type: Number
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+  ExecutionRoleArn:
+    Type: String
+    Default: ""
+    AllowedPattern: "^(arn:aws[a-zA-Z-]*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+)?$"
+    Description: >-
+      Leave empty to create a least-privilege role. In AWS Academy Learner Lab (no iam:CreateRole)
+      pass the LabRole ARN (ADR-008).
+
+Conditions:
+  CreateRole: !Equals [!Ref ExecutionRoleArn, ""]
+  HasReservedConcurrency: !Not [!Equals [!Ref ReservedConcurrency, 0]]
+
+Resources:
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cellsaas-orders-${CellId}
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref ReadCapacity
+        WriteCapacityUnits: !Ref WriteCapacity
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      SSESpecification:
+        SSEEnabled: true
+
+  CellLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/cellsaas-cell-${CellId}
+      RetentionInDays: !Ref LogRetentionDays
+
+  CellRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: own-table
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:Query]
+                Resource: !GetAtt OrdersTable.Arn
+        - PolicyName: own-fault-switch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cellsaas/faults/${CellId}
+        - PolicyName: own-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt CellLogGroup.Arn
+
+  CellFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: CellLogGroup
+    Properties:
+      FunctionName: !Sub cellsaas-cell-${CellId}
+      Description: !Sub CellSaaS cell ${CellId} - orders service, invoked only by the router
+      CodeUri: ../src
+      Handler: cellsaas.cell.handler.lambda_handler
+      Runtime: python3.13
+      Architectures: [arm64]
+      MemorySize: !Ref MemorySize
+      Timeout: 10
+      ReservedConcurrentExecutions: !If [HasReservedConcurrency, !Ref ReservedConcurrency, !Ref AWS::NoValue]
+      Role: !If [CreateRole, !GetAtt CellRole.Arn, !Ref ExecutionRoleArn]
+      Environment:
+        Variables:
+          CELL_ID: !Ref CellId
+          ORDERS_TABLE_NAME: !Ref OrdersTable
+          METRICS_NAMESPACE: CellSaaS
+
+Outputs:
+  CellId:
+    Value: !Ref CellId
+  FunctionName:
+    Value: !Ref CellFunction
+  TableName:
+    Value: !Ref OrdersTable
