@@ -7,3 +7,11 @@ __pycache__/
 tenants.json
 results/raw/
 dist/
+
+# Never commit account data or credentials
+samconfig.toml
+fase0.txt
+.env
+*.env
+*.pem
+credentials*
