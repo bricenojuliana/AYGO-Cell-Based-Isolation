@@ -49,13 +49,16 @@ class RouterHandler:
             "orderId": (event.get("pathParameters") or {}).get("orderId"),
             "day": (event.get("queryStringParameters") or {}).get("day"),
         }
+        invoke_started = self._clock()
         cell_id, status, payload = self._call(route.cell_id, cell_request)
         # Read fallback: a quarantined tenant's history stays in its home cell (ADR-007).
         if route.quarantined and op == "GetOrder" and status == 404 and route.home_cell_id:
             cell_id, status, payload = self._call(route.home_cell_id, cell_request)
+        cell_ms = round((self._clock() - invoke_started) * 1000, 1)
         payload = {**payload, "requestId": request_id} if status >= 400 else payload
         self._record(tenant_id, cell_id, op, status, started)
-        return _http(status, payload, {"x-cell-id": cell_id})
+        # x-cell-ms lets the client separate time spent in cells from the routing layer's overhead (H3).
+        return _http(status, payload, {"x-cell-id": cell_id, "x-cell-ms": str(cell_ms)})
 
     def _call(self, cell_id: str, request: dict) -> tuple[str, int, dict]:
         try:
