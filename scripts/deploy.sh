@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 : "${ROLE_ARN:?set ROLE_ARN to the LabRole ARN}"
 : "${CELLSAAS_PEPPER:?set CELLSAAS_PEPPER (16+ chars)}"
 WHAT="${1:-all}"
-CELL_RCU="${CELL_RCU:-10}"; CELL_WCU="${CELL_WCU:-10}"; RESERVED="${RESERVED:-0}"
+CELL_RCU="${CELL_RCU:-25}"; CELL_WCU="${CELL_WCU:-25}"; RESERVED="${RESERVED:-20}"  # sized in docs/CAPACITY.md
 
 deploy_platform() {
   sam build -t templates/platform.yaml --build-dir .aws-sam/platform

@@ -107,7 +107,7 @@ def main() -> None:
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--only", help="run a single cell of the matrix, e.g. C-E1")
     parser.add_argument("--rate", type=float, default=2.0, help="requests per second per tenant")
-    parser.add_argument("--multiplier", type=float, default=10.0)
+    parser.add_argument("--multiplier", type=float, default=50.0)
     parser.add_argument("--duration", type=float, default=480)
     parser.add_argument("--fault-start", type=float, default=120)
     parser.add_argument("--fault-end", type=float, default=420)

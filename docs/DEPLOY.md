@@ -19,7 +19,7 @@ source ~/.bashrc
 cd ~/cellsaas && ./scripts/deploy.sh all      # ≈ 10-12 min la primera vez
 ```
 
-Capacidad por celda: `CELL_RCU`, `CELL_WCU` (10 por defecto) y `RESERVED` (concurrencia reservada, 0 = sin reserva). El pool recibe 4× esa capacidad. Ejemplo: `CELL_WCU=5 ./scripts/deploy.sh cells`.
+Capacidad por celda: `CELL_RCU`, `CELL_WCU` (25 por defecto) y `RESERVED` (concurrencia reservada, 20 por defecto; 0 = sin reserva). El pool recibe 4× esa capacidad. El cálculo está en [CAPACITY.md](CAPACITY.md).
 
 ## 1b. Desplegar el plano de control (detector)
 
@@ -64,4 +64,4 @@ done
 
 ## Costo aproximado
 
-Las tablas aprovisionadas (4 celdas × 10 RCU/WCU + pool 40/40) cuestan del orden de USD 0,06 por hora aunque no haya tráfico; Lambda y API Gateway cobran por petición. Borra las pilas si no vas a usarlas en varios días.
+Las tablas aprovisionadas (4 celdas × 25 RCU/WCU + pool 100/100) cuestan del orden de USD 0,16 por hora aunque no haya tráfico; Lambda y API Gateway cobran por petición. Borra las pilas si no vas a usarlas en varios días.
