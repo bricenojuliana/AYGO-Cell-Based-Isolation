@@ -21,6 +21,13 @@ cd ~/cellsaas && ./scripts/deploy.sh all      # ≈ 10-12 min la primera vez
 
 Capacidad por celda: `CELL_RCU`, `CELL_WCU` (10 por defecto) y `RESERVED` (concurrencia reservada, 0 = sin reserva). El pool recibe 4× esa capacidad. Ejemplo: `CELL_WCU=5 ./scripts/deploy.sh cells`.
 
+## 1b. Desplegar el plano de control (detector)
+
+```bash
+./scripts/deploy.sh control
+python3 scripts/control.py mode observe   # detecta y audita, no aísla (C); "act" para C+IA
+```
+
 ## 2. Registrar 30 tenants y probar
 
 ```bash
@@ -50,7 +57,7 @@ python3 scripts/fault.py c2 --off
 ## 5. Borrar todo al terminar
 
 ```bash
-for s in cellsaas-cell-c1 cellsaas-cell-c2 cellsaas-cell-c3 cellsaas-cell-q cellsaas-cell-pool cellsaas-platform; do
+for s in cellsaas-control cellsaas-cell-c1 cellsaas-cell-c2 cellsaas-cell-c3 cellsaas-cell-q cellsaas-cell-pool cellsaas-platform; do
   sam delete --stack-name "$s" --no-prompts
 done
 ```

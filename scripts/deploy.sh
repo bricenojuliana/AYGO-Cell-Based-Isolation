@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds and deploys the platform and the cells from CloudShell (docs/DEPLOY.md).
-#   ROLE_ARN=... CELLSAAS_PEPPER=... ./scripts/deploy.sh [platform|cells|all]
+#   ROLE_ARN=... CELLSAAS_PEPPER=... ./scripts/deploy.sh [platform|cells|control|all]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${ROLE_ARN:?set ROLE_ARN to the LabRole ARN}"
@@ -29,10 +29,18 @@ deploy_cells() {
   deploy_cell pool $((CELL_RCU * 4)) $((CELL_WCU * 4)) $((RESERVED * 4))
 }
 
+deploy_control() {
+  sam build -t templates/control.yaml --build-dir .aws-sam/control
+  sam deploy --template-file .aws-sam/control/template.yaml --stack-name cellsaas-control \
+    --resolve-s3 --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset \
+    --parameter-overrides ExecutionRoleArn="$ROLE_ARN"
+}
+
 case "$WHAT" in
   platform) deploy_platform ;;
   cells) deploy_cells ;;
-  all) deploy_platform; deploy_cells ;;
-  *) echo "usage: $0 [platform|cells|all]"; exit 2 ;;
+  control) deploy_control ;;
+  all) deploy_platform; deploy_cells; deploy_control ;;
+  *) echo "usage: $0 [platform|cells|control|all]"; exit 2 ;;
 esac
 aws cloudformation describe-stacks --stack-name cellsaas-platform --query "Stacks[0].Outputs" --output table

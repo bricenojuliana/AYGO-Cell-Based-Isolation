@@ -28,7 +28,7 @@ def _load(name):
     return yaml.load((ROOT / "templates" / name).read_text(), Loader=CfnLoader)
 
 
-@pytest.fixture(scope="module", params=["cell.yaml", "platform.yaml"])
+@pytest.fixture(scope="module", params=["cell.yaml", "platform.yaml", "control.yaml"])
 def template(request):
     return _load(request.param)
 

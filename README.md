@@ -2,7 +2,7 @@
 
 Prototipo del proyecto final del curso AYGO (Arquitectura de Software, Arquitectura Empresarial y Gobierno de TI). Un SaaS de pedidos multi-tenant mínimo desplegado en AWS con el mismo código en dos topologías, **pool** compartido y **celdas**, más un plano de control que detecta al tenant que degrada a sus vecinos y lo aísla en una celda de cuarentena.
 
-> Estado: plano de datos listo (router + celdas + pool). Plano de control, arnés de carga y análisis en curso.
+> Estado: plano de datos y plano de control listos. Arnés de carga y análisis en curso.
 
 ## Arquitectura
 
@@ -16,6 +16,9 @@ flowchart LR
   router --> q[Celda cuarentena]
   router -. config P .-> pool[Pool<br/>4× capacidad]
   router --- rt[(Tabla de ruteo)]
+  det[Detector Lambda<br/>cada minuto] -->|GetMetricData| cw[(CloudWatch EMF)]
+  det -->|cuarentena| rt
+  det --> audit[(Bitácora)]
 ```
 
 - **Celda**: una función Lambda y una tabla DynamoDB con capacidad acotada (`templates/cell.yaml`). El pool es la misma celda con 4× capacidad.
@@ -30,8 +33,8 @@ flowchart LR
 | `src/cellsaas/cell/` | `handler` → `service` → `ports` → `repository` (DynamoDB) y `faults` (SSM) |
 | `src/cellsaas/router/` | `handler`, `directory` (auth y caché de rutas), `invoker` |
 | `src/cellsaas/routing.py` | Tabla de ruteo: registro, asignación, cuarentena y liberación |
-| `src/cellsaas/control/` | Plano de control (colocación; detector y aislamiento en curso) |
-| `templates/` | SAM: `platform.yaml` y `cell.yaml` |
+| `src/cellsaas/control/` | Plano de control: `placement`, `metrics` (CloudWatch), `detector` (z-score), `policy`, `loop`, `store` (auditoría) |
+| `templates/` | SAM: `platform.yaml`, `cell.yaml` y `control.yaml` |
 | `scripts/` | Despliegue, tenants, fallas, smoke test |
 | `tests/` | Unitarias, adaptadores (moto) e infraestructura (reglas de templates) |
 
