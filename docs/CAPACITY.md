@@ -8,11 +8,13 @@ Datos de la fase 0 (Learner Lab, us-east-1): 1000 ejecuciones concurrentes de La
 |---|---|
 | Tenants | 30 (10 por celda en C y C+IA) |
 | Tasa por tenant | 2 rps, Poisson, lazo abierto |
-| Mezcla | 80 % crear pedido, 15 % leer pedido, 5 % reporte diario |
+| Mezcla | 80 % crear pedido, 20 % leer pedido |
 | Costo de crear | 1 WCU (ítem < 1 KB) |
 | Costo de leer | 0,5 RCU (GetItem, lectura eventual) |
 
 Por tenant en estado normal: 1,6 WCU/s. Una celda de 10 tenants usa unas 16 WCU/s; el pool con 30 tenants, unas 48 WCU/s.
+
+El reporte diario se dejó fuera de la mezcla. Lee toda la partición del tenant, así que su costo crece con cada corrida; en la corrida de prueba (C-E1, 2026-11-19) saturó por sí solo la lectura de las celdas sanas y subió su p99 de 230 a 680 ms sin relación con el tenant ruidoso.
 
 ## Capacidad elegida
 

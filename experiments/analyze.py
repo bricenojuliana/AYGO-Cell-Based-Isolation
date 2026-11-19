@@ -40,6 +40,7 @@ def main() -> None:
         df = load_requests(meta_path.with_suffix(".csv"), meta["started_at"])
         rows.append(asdict(run_metrics(df, meta)))
         tl = affected_timeline(df, meta).rename("affected_pct").reset_index()
+        tl = tl[tl["window"] >= 1]  # minute 0 holds Lambda cold starts after the topology switch
         tl["config"], tl["scenario"], tl["rep"] = meta["config"], meta["scenario"], meta["rep"]
         timelines.append(tl)
     if not rows:

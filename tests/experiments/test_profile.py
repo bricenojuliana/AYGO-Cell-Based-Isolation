@@ -20,8 +20,14 @@ def test_poisson_gaps_average_to_the_rate():
 
 def test_operation_mix_and_first_request_is_a_create():
     rng = random.Random(2)
-    profile = LoadProfile()
+    profile = LoadProfile(report_ratio=0.05)
     assert profile.pick_op(random.Random(0), has_orders=False) in {"CreateOrder", "DailyReport"}
     ops = [profile.pick_op(rng, True) for _ in range(20000)]
     assert abs(ops.count("CreateOrder") / len(ops) - 0.8) < 0.02
     assert abs(ops.count("DailyReport") / len(ops) - 0.05) < 0.01
+
+
+def test_default_mix_has_no_reports():
+    rng = random.Random(3)
+    ops = {LoadProfile().pick_op(rng, True) for _ in range(5000)}
+    assert ops == {"CreateOrder", "GetOrder"}

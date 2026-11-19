@@ -22,7 +22,9 @@ class NoisyPhase:
 class LoadProfile:
     rate_rps: float = 2.0  # per tenant, nominal
     create_ratio: float = 0.8  # the rest are reads of the tenant's own orders
-    report_ratio: float = 0.05  # daily report (expensive) share of all requests
+    # Daily reports read the whole tenant partition, so their cost grows with every run and saturates
+    # read capacity on its own (trial run 2026-11-19). The matrix leaves them out; E2 (heavy queries) was cut.
+    report_ratio: float = 0.0
     noisy: NoisyPhase | None = None
 
     def rate(self, tenant_id: str, elapsed_s: float) -> float:
