@@ -31,6 +31,9 @@ from experiments.cellexp.loadgen import LoadGenerator  # noqa: E402
 from experiments.cellexp.profile import LoadProfile, NoisyPhase  # noqa: E402
 
 MATRIX = [("P", "E0"), ("C", "E0"), ("P", "E1"), ("C", "E1"), ("CIA", "E1"), ("P", "E4"), ("C", "E4")]
+# E1S = severe noisy tenant: enough excess to drain the pool's DynamoDB burst capacity within the fault
+# (docs/CAPACITY.md). Run with --only P-E1S, C-E1S, CIA-E1S.
+NOISY_SCENARIOS = ("E1", "E1S")
 MODE = {"P": "off", "C": "observe", "CIA": "act"}
 NOISY_TENANT, FAILED_CELL = "cafe-01", "c2"
 
@@ -73,12 +76,13 @@ async def one_run(args, config, scenario, rep, tenants, routing, ssm, ssm_mode, 
         set_fault(ssm, cell, False)
     time.sleep(args.settle)  # route caches (10 s) and fault caches (5 s) expire
 
-    noisy = NoisyPhase(NOISY_TENANT, args.fault_start, args.fault_end, args.multiplier) if scenario == "E1" else None
+    multiplier = args.severe_multiplier if scenario == "E1S" else args.multiplier
+    noisy = NoisyPhase(NOISY_TENANT, args.fault_start, args.fault_end, multiplier) if scenario in NOISY_SCENARIOS else None
     profile = LoadProfile(rate_rps=args.rate, noisy=noisy)
     generator = LoadGenerator(args.api, tenants, profile, csv_path, seed=zlib.crc32(name.encode()) % 10_000)
     meta = {"run": name, "config": config, "scenario": scenario, "rep": rep, "rate_rps": args.rate,
             "duration_s": args.duration, "fault_start_s": args.fault_start, "fault_end_s": args.fault_end,
-            "noisy_tenant": NOISY_TENANT if scenario == "E1" else None,
+            "noisy_tenant": NOISY_TENANT if scenario in NOISY_SCENARIOS else None, "multiplier": noisy and multiplier,
             "failed_cell": (("pool" if config == "P" else FAILED_CELL) if scenario == "E4" else None),
             "tenant_cells": {t["tenantId"]: ("pool" if config == "P" else t["cell"]) for t in tenants}}
 
@@ -106,9 +110,10 @@ def main() -> None:
     parser.add_argument("--tenants", type=Path, default=ROOT / "tenants.json")
     parser.add_argument("--out", type=Path, default=ROOT / "results" / "raw")
     parser.add_argument("--reps", type=int, default=3)
-    parser.add_argument("--only", help="run a single cell of the matrix, e.g. C-E1")
+    parser.add_argument("--only", help="comma-separated cells of the matrix, e.g. C-E1 or P-E1S,C-E1S,CIA-E1S")
     parser.add_argument("--rate", type=float, default=2.0, help="requests per second per tenant")
     parser.add_argument("--multiplier", type=float, default=50.0)
+    parser.add_argument("--severe-multiplier", type=float, default=200.0)
     parser.add_argument("--duration", type=float, default=480)
     parser.add_argument("--fault-start", type=float, default=120)
     parser.add_argument("--fault-end", type=float, default=420)
@@ -121,7 +126,7 @@ def main() -> None:
     ddb = boto3.resource("dynamodb")
     routing, control = RoutingTable(ddb.Table("cellsaas-routing")), ddb.Table("cellsaas-control")
     ssm = boto3.client("ssm")
-    matrix = [tuple(args.only.split("-"))] if args.only else MATRIX
+    matrix = [tuple(o.split("-")) for o in args.only.split(",")] if args.only else MATRIX
     runs = [(c, s, r) for r in range(1, args.reps + 1) for c, s in matrix]
     random.Random(args.seed).shuffle(runs)  # randomized order (SPEC 7)
     for config, scenario, rep in runs:

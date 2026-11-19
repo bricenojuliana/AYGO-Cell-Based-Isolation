@@ -32,9 +32,20 @@ El tenant ruidoso pasa a 2 × m rps, es decir 1,6 m WCU/s. Para que el experimen
 - Celda: 14,4 + 1,6 m > 25 → m > 6,6
 - Pool: 46,4 + 1,6 m > 100 → m > 33,5
 
-Se usa **m = 50** (100 rps, unas 80 WCU/s solo del ruidoso). La demanda queda en 126 WCU/s frente a 100 en el pool y en 94 frente a 25 en su celda.
+Se usa **m = 50** (100 rps, unas 80 WCU/s solo del ruidoso). La demanda queda en 126 WCU/s frente a 100 en el pool y en 94 frente a 25 en su celda. Ese cálculo ignora la capacidad de ráfaga; la corrección está abajo.
 
-DynamoDB guarda hasta 300 s de capacidad no usada como ráfaga. Con m = 50 el exceso (26 WCU/s en el pool) agota esa ráfaga en menos de dos minutos, dentro de la ventana de falla de 300 s. La corrida de prueba del jueves confirma que la saturación aparece. Si no aparece, se sube m sin cambiar la capacidad.
+### Corrección tras la corrida P-E1-r1: la capacidad de ráfaga
+
+DynamoDB acumula la capacidad no usada de los últimos 300 s y la gasta en ráfagas. La reserva depende de la holgura de cada tabla:
+
+| Tabla | Holgura en estado normal | Reserva máxima (300 s) | Exceso con m = 50 | Tiempo hasta agotarla |
+|---|---|---|---|---|
+| Celda (25 WCU) | unas 9 WCU/s | unas 2.700 | unas 69 WCU/s | unos 40 s |
+| Pool (100 WCU) | unas 52 WCU/s | unas 15.600 | unas 26 WCU/s | unos 600 s, más que la falla |
+
+Por eso, con m = 50, la celda del ruidoso se satura pero el pool no: en P-E1-r1 solo el 7 % de los vecinos salió afectado. No es un error del experimento; es el efecto de multiplexación del pool, que comparte una holgura más grande.
+
+Para medir también el caso en que el pool se satura se agrega el escenario **E1S** (ruido severo, m = 200, 400 rps): el exceso en el pool es de unas 590 WCU/s y agota la reserva en menos de 30 s. Así el paper compara ruido moderado (E1) contra severo (E1S).
 
 ## Costo de las tablas
 

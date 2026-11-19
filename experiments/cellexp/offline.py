@@ -36,7 +36,7 @@ def label(frame: pd.DataFrame, runs: list[dict]) -> pd.DataFrame:
         in_some_run |= (frame["start"] >= run["started_at"]) & (frame["start"] + WINDOW_S <= end)
     keep = in_some_run.copy()
     for run in runs:
-        if run.get("scenario") != "E1" or not run.get("noisy_tenant"):
+        if not run.get("noisy_tenant"):
             continue
         lo, hi = run["started_at"] + run["fault_start_s"], run["started_at"] + run["fault_end_s"]
         mine = frame["tenant"] == run["noisy_tenant"]
