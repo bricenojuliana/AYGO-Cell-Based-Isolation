@@ -43,3 +43,28 @@ def test_both_detectors_catch_an_obvious_noisy_tenant():
     assert results["z-score"].recall == 1.0 and results["z-score"].precision == 1.0
     assert results["Isolation"].recall == 1.0
     assert results["Isolation"].roc_auc > 0.95
+
+
+def test_client_frame_replays_zscore_and_flags_the_noisy_tenant():
+    import pandas as pd
+
+    from experiments.cellexp.offline import CLIENT_FEATURES, client_frame
+
+    rng = random.Random(1)
+    rows = []
+    for r, run in enumerate(["A", "B", "C"]):
+        for w in range(8):
+            for i in range(1, 11):
+                tenant = f"cafe-{i:02d}"
+                noisy = run == "C" and tenant == "cafe-01" and 2 <= w < 7
+                sent = int((5000 if noisy else 100) * rng.uniform(0.9, 1.1))
+                rows.append({"tenant": tenant, "w": w, "sent": sent, "ok": sent, "start": T0 + 600 * r + 60 * w,
+                             "run": run, "scenario": "E1", "label": int(noisy)})
+    frame = client_frame(pd.DataFrame(rows))
+    assert (frame["w"] > 0).all()
+    assert frame["label"].sum() == 5
+    noisy = frame[frame.label == 1]
+    assert (noisy["z"] > 3).all()  # anomalous windows are not learned, so the streak keeps scoring high
+    z, forest = evaluate(frame, features=CLIENT_FEATURES)
+    assert z.recall == 1.0 and z.precision == 1.0
+    assert forest.roc_auc > 0.9
