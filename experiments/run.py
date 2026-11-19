@@ -17,6 +17,7 @@ import json
 import random
 import sys
 import time
+import zlib
 from decimal import Decimal
 from pathlib import Path
 
@@ -74,7 +75,7 @@ async def one_run(args, config, scenario, rep, tenants, routing, ssm, ssm_mode, 
 
     noisy = NoisyPhase(NOISY_TENANT, args.fault_start, args.fault_end, args.multiplier) if scenario == "E1" else None
     profile = LoadProfile(rate_rps=args.rate, noisy=noisy)
-    generator = LoadGenerator(args.api, tenants, profile, csv_path, seed=hash(name) % 10_000)
+    generator = LoadGenerator(args.api, tenants, profile, csv_path, seed=zlib.crc32(name.encode()) % 10_000)
     meta = {"run": name, "config": config, "scenario": scenario, "rep": rep, "rate_rps": args.rate,
             "duration_s": args.duration, "fault_start_s": args.fault_start, "fault_end_s": args.fault_end,
             "noisy_tenant": NOISY_TENANT if scenario == "E1" else None,
