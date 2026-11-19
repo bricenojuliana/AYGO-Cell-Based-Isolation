@@ -48,3 +48,17 @@ Salidas en `results/`: `runs.csv` (una fila por corrida), `summary.csv` (mediana
 ## 5. Al terminar
 
 Borra las pilas (paso 5 de [DEPLOY.md](DEPLOY.md)) para no gastar presupuesto del lab.
+
+## 6. Corridas ejecutadas
+
+La cuenta del Learner Lab se desactivó el 2026-11-19 a mitad de la matriz, por el volumen de invocaciones Lambda de la prueba de carga (cada petición invoca al router y a una celda, unas 320 invocaciones por segundo durante dos horas). Se alcanzaron 8 corridas, una por condición salvo P-E4 (dos):
+
+| Configuración | E0 | E1 | E4 |
+|---|---|---|---|
+| Pool (P) | r1 | r1 | r1, r3 |
+| Celdas (C) | r1, r3 | r3 | — |
+| Celdas + IA (CIA) | — | r1 | — |
+
+Con una corrida por condición los resultados son descriptivos: no se reportan pruebas de Mann-Whitney ni delta de Cliff. E1S y C-E4 no se ejecutaron. La exportación del plano de control se perdió con la cuenta, así que la comparación z-score vs Isolation Forest usa las peticiones por tenant y minuto que registró el generador de carga (`results/tenant_minutes.csv`, `experiments/compare_detectors.py --client`).
+
+Si se repite el experimento en otra cuenta, conviene una tasa base más baja (`--rate 0.5`) y coordinar la prueba de carga con el administrador de la cuenta.
