@@ -27,14 +27,15 @@ def _records():
     return recs
 
 
-RUN = {"scenario": "E1", "noisy_tenant": "cafe-01", "started_at": T0 + 60 * 18, "fault_start_s": 120, "fault_end_s": 720}
+RUN = {"scenario": "E1", "noisy_tenant": "cafe-01", "started_at": T0 + 60 * 18, "fault_start_s": 120, "fault_end_s": 720,
+       "ended_at": T0 + 60 * 40}
 
 
 def test_labels_only_noisy_tenant_inside_the_fault():
     frame = label(windows_frame(_records()), [RUN])
     assert frame["label"].sum() == 10
     assert set(frame[frame.label == 1]["tenant"]) == {"cafe-01"}
-    assert frame["start"].min() >= T0 + 300  # warm-up windows dropped
+    assert frame["start"].min() >= T0 + 60 * 18  # only windows inside a run
 
 
 def test_both_detectors_catch_an_obvious_noisy_tenant():

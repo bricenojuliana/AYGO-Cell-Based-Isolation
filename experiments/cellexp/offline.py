@@ -30,7 +30,11 @@ def label(frame: pd.DataFrame, runs: list[dict]) -> pd.DataFrame:
     """Positive: noisy tenant, window fully inside the fault. Windows straddling the fault edges are dropped."""
     frame = frame.copy()
     frame["label"] = 0
-    keep = pd.Series(True, index=frame.index)
+    in_some_run = pd.Series(False, index=frame.index)  # trial runs and idle time are not evaluated
+    for run in runs:
+        end = run.get("ended_at", run["started_at"] + run.get("duration_s", 480))
+        in_some_run |= (frame["start"] >= run["started_at"]) & (frame["start"] + WINDOW_S <= end)
+    keep = in_some_run.copy()
     for run in runs:
         if run.get("scenario") != "E1" or not run.get("noisy_tenant"):
             continue
