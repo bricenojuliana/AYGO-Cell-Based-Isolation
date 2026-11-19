@@ -45,7 +45,7 @@ DynamoDB acumula la capacidad no usada de los últimos 300 s y la gasta en ráfa
 
 Por eso, con m = 50, la celda del ruidoso se satura pero el pool no: en P-E1-r1 solo el 7 % de los vecinos salió afectado. No es un error del experimento; es el efecto de multiplexación del pool, que comparte una holgura más grande.
 
-Para medir también el caso en que el pool se satura se agrega el escenario **E1S** (ruido severo, m = 200, 400 rps): el exceso en el pool es de unas 590 WCU/s y agota la reserva en menos de 30 s. Así el paper compara ruido moderado (E1) contra severo (E1S).
+Para medir también el caso en que el pool se satura se agrega el escenario **E1S** (ruido severo, m = 200, 400 rps): el pool recibe unas 366 WCU/s frente a 100, un exceso de unas 270 WCU/s que agota la reserva en alrededor de un minuto. Así el paper compara ruido moderado (E1) contra severo (E1S).
 
 ## Costo de las tablas
 
