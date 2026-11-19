@@ -39,8 +39,13 @@ def test_mttr_none_if_never_recovered_and_zero_if_never_affected():
 
 
 def test_mttd_from_first_applied_quarantine():
-    meta = {**META, "audit": [{"sk": "1970-01-01T00:20:40.000000Z#cafe-01", "action": "QUARANTINE", "applied": True}]}
-    assert run_metrics(_df(set()), meta).mttd_s == 1240 - 1120
+    meta = {**META, "audit": [
+        {"sk": "1970-01-01T00:20:40.000000Z#a", "action": "QUARANTINE", "applied": True, "tenantId": "cafe-01"},
+        {"sk": "1970-01-01T00:21:40.000000Z#b", "action": "QUARANTINE", "applied": True, "tenantId": "cafe-04"},
+    ]}
+    m = run_metrics(_df(set()), meta)
+    assert m.mttd_s == 1240 - 1120
+    assert m.false_quarantines == 1
 
 
 def test_cliffs_delta():

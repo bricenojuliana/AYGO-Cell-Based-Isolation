@@ -48,6 +48,7 @@ class RunMetrics:
     mttd_s: float | None  # detector decision - fault start (C+IA only)
     mttr_s: float | None  # victims back in SLO for 2 windows - fault start; None if never during the run
     routing_overhead_p50_ms: float | None
+    false_quarantines: int  # applied quarantines of tenants that were not the injected noisy one
 
 
 def run_metrics(df: pd.DataFrame, meta: dict) -> RunMetrics:
@@ -62,9 +63,10 @@ def run_metrics(df: pd.DataFrame, meta: dict) -> RunMetrics:
     ok = in_fault[~in_fault["bad"]]["latency_ms"]
 
     mttd = None
-    decisions = [a for a in meta.get("audit", []) if a.get("action") == "QUARANTINE" and a.get("applied")]
-    if decisions:
-        decided = pd.Timestamp(decisions[0]["sk"].split("#")[0]).timestamp()
+    applied = [a for a in meta.get("audit", []) if a.get("action") == "QUARANTINE" and a.get("applied")]
+    hits = [a for a in applied if a.get("tenantId") == meta.get("noisy_tenant")]
+    if hits:
+        decided = pd.Timestamp(hits[0]["sk"].split("#")[0]).timestamp()
         mttd = round(decided - (meta["started_at"] + meta["fault_start_s"]), 1)
 
     mttr = None
@@ -93,6 +95,7 @@ def run_metrics(df: pd.DataFrame, meta: dict) -> RunMetrics:
         p99_ms=round(float(ok.quantile(0.99)), 1) if len(ok) else float("nan"),
         error_pct=round(float(in_fault["bad"].mean() * 100), 2) if len(in_fault) else 0.0,
         requests=len(df), mttd_s=mttd, mttr_s=mttr, routing_overhead_p50_ms=overhead,
+        false_quarantines=len(applied) - len(hits),
     )
 
 

@@ -64,7 +64,7 @@ class ControlLoop:
             })
 
         for tenant_id, window in windows.items():
-            if not self._policy.is_anomalous(scores[tenant_id]):
+            if self._policy.should_learn(scores[tenant_id], routes.get(tenant_id), cells):
                 self._detector.learn(window, baselines[tenant_id])
         self._store.save_baselines(baselines)
         self._store.save_features(start.isoformat(), {

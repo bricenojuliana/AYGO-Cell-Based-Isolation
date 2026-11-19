@@ -48,7 +48,7 @@ def main() -> None:
     runs = pd.DataFrame(rows).sort_values(["scenario", "config", "rep"])
     runs.to_csv(args.out / "runs.csv", index=False)
 
-    summary = runs.groupby(["scenario", "config"])[METRICS + ["mttd_s", "routing_overhead_p50_ms"]].agg(
+    summary = runs.groupby(["scenario", "config"])[METRICS + ["mttd_s", "false_quarantines", "routing_overhead_p50_ms"]].agg(
         ["median", "min", "max"]).round(1)
     summary.to_csv(args.out / "summary.csv")
 

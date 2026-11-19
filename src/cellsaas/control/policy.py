@@ -26,12 +26,21 @@ class IsolationPolicy:
     def is_anomalous(self, score: Score) -> bool:
         return score.ready and score.value > self.threshold
 
+    def should_learn(self, score: Score, route: Route | None, cells: Mapping[str, CellHealth]) -> bool:
+        """The baseline learns only from normal behaviour: the tenant is not anomalous and its cell is healthy.
+        A victim's demand drops while its cell is saturated; learning that would make its recovery look anomalous."""
+        if self.is_anomalous(score):
+            return False
+        health = cells.get(route.cell_id) if route else None
+        return health is None or not health.symptomatic(self._slo, self._max_bad)
+
     def decide(self, scores: Mapping[str, Score], baselines: Mapping[str, Baseline],
                cells: Mapping[str, CellHealth], routes: Mapping[str, Route], act: bool) -> list[Decision]:
+        handled = {r.home_cell_id for r in routes.values() if r.quarantined}
         best_per_cell: dict[str, Score] = {}
         for tenant_id, score in scores.items():
             route = routes.get(tenant_id)
-            if route is None or route.quarantined or baselines[tenant_id].streak < self.k:
+            if route is None or route.quarantined or baselines[tenant_id].streak < self.k or route.cell_id in handled:
                 continue
             current = best_per_cell.get(route.cell_id)
             if current is None or score.value > current.value:

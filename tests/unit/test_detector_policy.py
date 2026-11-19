@@ -88,3 +88,20 @@ def test_cell_health_symptoms():
     assert CellHealth("c", 100, 0, 0, 900).symptomatic(500, 0.01)
     assert not CellHealth("c", 100, 0, 0, 100).symptomatic(500, 0.01)
     assert not CellHealth("c", 0, 0, 0, 0).symptomatic(500, 0.01)
+
+
+def test_no_second_quarantine_in_a_cell_that_already_has_one():
+    """Trial run 2026-11-19: after the noisy tenant left c1, the lagging symptoms blamed two neighbours."""
+    scores, baselines, cells, routes = _setup(streak_t2=3, s2=11.0, route_t1=Route("t1", "q", QUARANTINED, "c1"))
+    assert IsolationPolicy().decide(scores, baselines, cells, routes, act=True) == []
+
+
+def test_baseline_learns_only_from_normal_tenants_in_healthy_cells():
+    policy = IsolationPolicy(threshold=3)
+    normal, anomalous = Score("t", 1.0, "rps", True), Score("t", 9.0, "rps", True)
+    healthy = {"c1": CellHealth("c1", 1000, 0, 0, 200)}
+    degraded = {"c1": CellHealth("c1", 1000, 0, 80, 200)}
+    route = Route("t", "c1")
+    assert policy.should_learn(normal, route, healthy)
+    assert not policy.should_learn(anomalous, route, healthy)
+    assert not policy.should_learn(normal, route, degraded)  # victims' depressed demand is not learned
