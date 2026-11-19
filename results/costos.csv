@@ -1,0 +1,10 @@
+,Pool sin router,Celdas,Celdas + IA
+API Gateway,157.68,157.68,157.68
+Lambda celdas,42.05,42.05,42.05
+Lambda router,0.0,63.07,63.07
+DynamoDB,56.94,56.94,56.94
+CloudWatch Logs,70.96,141.91,141.91
+Métricas personalizadas,55.8,103.2,103.2
+Detector (GetMetricData),0.0,0.0,46.43
+Total,383.43,564.85,611.28
+Sobrecosto vs pool (%),0.0,47.3,59.4
