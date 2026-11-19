@@ -1,0 +1,10 @@
+# Smoke test, AWS Academy Learner Lab (us-east-1), 2026-11-19 14:11 UTC
+# API URL omitted.
+$ python3 scripts/tenants.py create --count 30
+30 tenants registered; 30 in tenants.json
+$ python3 scripts/smoke.py "$API"
+PASS  create  201 cell=c1 {'orderId': 'CC-WFJ9-3ABM', 'items': [{'sku': 'TINTO', 'quantity': 2, 'unitPriceCents': 250000}], 'totalCents': 500000, 'currency': 'COP', 'createdAt': '2026-11-19T14:11:06Z'}
+PASS  read own order  200 cell=c1
+PASS  other tenant cannot read it (QAS05)  404 cell=c2
+PASS  daily report  200 {'day': '2026-11-19', 'orders': 1, 'totalCents': 500000, 'currency': 'COP'}
+PASS  bad key rejected  401
